@@ -1,0 +1,44 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find ZIP
+        id: zip
+        run: echo "ZIP=$(find . -iname '*.zip' -print -quit)" >> "$GITHUB_OUTPUT"
+
+      - name: Unzip
+        run: |
+          rm -rf build-dir
+          mkdir build-dir
+          unzip -q "${{ steps.zip.outputs.ZIP }}" -d build-dir
+
+      - name: Find project folder
+        id: root
+        run: echo "ROOT=$(dirname "$(find build-dir -name 'settings.gradle.kts' -print -quit)")" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Build APK
+        run: gradle -p "${{ steps.root.outputs.ROOT }}" assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: build-dir/**/app/build/outputs/apk/debug/app-debug.apk
